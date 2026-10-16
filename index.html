@@ -84,13 +84,23 @@ tbody tr:hover td.sorted{background:var(--sel)}
 .notes{padding:14px 20px 40px;color:var(--ink-2);font-size:14px;max-width:78ch}
 .notes h2{font-size:17px;color:var(--ink);margin:0 0 6px}
 .notes p{margin:0 0 8px}
-@media (max-width:640px){header{padding:14px 12px 6px}h1{font-size:24px}.controls,.filters,.star{border:0;background:none;padding:0 6px 0 0;font-size:17px;line-height:1;color:var(--ink-2);vertical-align:-1px}
+.star{border:0;background:none;padding:0 6px 0 0;font-size:17px;line-height:1;color:var(--ink-2);vertical-align:-1px}
 .star[aria-pressed=true]{color:var(--amber)}
 .sl{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .sl label.only{font-size:14px;display:flex;gap:4px;align-items:center;margin-left:4px}
 .sl input[type=text]{width:150px}
 .danger{color:var(--fwd);border-color:var(--fwd)}
-.notes{padding-left:12px;padding-right:12px}.colpanel{grid-template-columns:repeat(2,max-content)}}
+.fbar{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.fsave{display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:0 0 8px}
+.fsave .dirty{color:var(--amber);font-size:13px}
+.fsave input[type=text]{width:160px}
+.fgroup{display:flex;flex-direction:column;gap:5px;border-left:3px solid var(--rule);padding:4px 0 4px 9px}
+.fgroup.sub{background:var(--panel);border-left-color:var(--turf);border-radius:0 4px 4px 0;padding-right:8px}
+.fline{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.fline .lbl{color:var(--ink-2);font-size:14px}
+.fgroup select,.fgroup input{padding:3px 5px}
+.fgroup input[type=number]{width:72px}
+@media (max-width:640px){header{padding:14px 12px 6px}h1{font-size:24px}.controls,.filters,.notes{padding-left:12px;padding-right:12px}.colpanel{grid-template-columns:repeat(2,max-content)}}
 </style>
 </head>
 <body>
@@ -111,7 +121,8 @@ tbody tr:hover td.sorted{background:var(--sel)}
   <details class="cols field"><summary>Columns</summary><div class="colpanel" id="colpanel"></div></details>
 </div>
 <div class="filters" id="filters">
-  <button class="link" id="addf">Add stat filter</button>
+  <div class="fsave" id="fsave"></div>
+  <div class="fbar" id="fbar"></div>
   <span class="count" id="count"></span>
 </div>
 
@@ -125,7 +136,10 @@ tbody tr:hover td.sorted{background:var(--sel)}
   <p>Hit rates count matches where a player reached 60 minutes, reached the DEFCON threshold (10 for defenders, 12 for midfielders and forwards; goalkeepers can't earn it) or made 3 or more saves. "Appearances" divides by matches the player got on the pitch; "Team matches" divides by every match their club has played. A double gameweek counts as two matches and a blank gameweek as none. Single gameweeks use the official FPL figures; double gameweeks are split using match-level stats, which agree with FPL's DEFCON threshold calls on every match checked so far.</p>
 <p>Last non-start is the most recent gameweek in which a player's club played a match he didn't start, with the minutes he played that gameweek beside it. It counts being benched, being an unused substitute, and being out of the squad altogether, so read it as rotation and availability risk rather than benchings alone. "Never" means he has started every match his club has played. Single gameweeks use the official FPL starts figure; doubles fall back to match-level data where that shows more starts.</p>
 <p>Shortlists and your filter settings are saved in this browser, so they won't appear on another device or if you clear site data.</p>
-  <p>Per-90 figures are only shown for players with minutes. Stat filters apply to whatever is on screen, so a filter set in Per 90 mode filters per-90 values.</p>
+  <p>Total points always shows the season total, so it stays put when the table is in Per 90 mode and the Points column becomes points per 90. In Totals mode the two columns match; hide either one from Columns if you don't want both.</p>
+<p>Save current stores everything above the table — the builder, the position, team, price and minutes controls, the Totals or Per 90 choice, the hit-rate basis, and the sort order — under a name you give it. Picking a saved filter puts all of that back. "Edited since saving" means the current view no longer matches what's stored; Update overwrites it, or save it under a new name to keep both. Saved filters live in this browser alongside your shortlists.</p>
+<p>The filter builder combines conditions with and/or. A group set to "Match all of" needs every condition in it to be true; "Match any of" needs just one. Add a nested group to mix the two, for example match all of [price at most 5.5] and [any of: DEFCON hit at least 50%, xGI per 90 at least 0.3]. Position and team are available as conditions too, so you can write rules that apply to one position only. An empty condition is ignored rather than matching nothing.</p>
+<p>Per-90 figures are only shown for players with minutes. Stat filters apply to whatever is on screen, so a filter set in Per 90 mode filters per-90 values.</p>
 </section>
 
 <script>
@@ -216,7 +230,7 @@ function build({players,teams,gws,cum}){
     out.push({id,n:p.web_name,f:`${p.first_name} ${p.second_name}`,t:tm.s,tn:tm.n,p:pos,c:n0(c.now_cost),min:n0(c.minutes),st:n0(c.starts),
       apps,tmn:t.n,m60,lns,lnsmin,xg,npxg,xa,xgi:n0(c.expected_goal_involvements),npxgi:npxg+xa,xgot:pm.reduce((s,x)=>s+x.xgot,0),
       xgc:n0(c.expected_goals_conceded),xcs:t.x,dc:n0(c.defensive_contribution),dch,sv:n0(c.saves),svh,
-      cd:n0(c.yellow_cards)+n0(c.red_cards),b:n0(c.bonus),bps:n0(c.bps),pts:n0(c.total_points),g:n0(c.goals_scored),a:n0(c.assists),cs:n0(c.clean_sheets)});
+      cd:n0(c.yellow_cards)+n0(c.red_cards),b:n0(c.bonus),bps:n0(c.bps),pts:n0(c.total_points),ptot:n0(c.total_points),g:n0(c.goals_scored),a:n0(c.assists),cs:n0(c.clean_sheets)});
   });
   return out;
 }
@@ -226,6 +240,7 @@ const COLS = [
   {k:'t',l:'Team',g:'',type:'txt'},
   {k:'c',l:'Price',g:'FPL',d:1},
   {k:'pts',l:'Points',g:'FPL',rate:1,d:0,d9:2},
+  {k:'ptot',l:'Total points',g:'FPL',d:0},
   {k:'b',l:'Bonus',g:'FPL',rate:1,d:0,d9:2},
   {k:'bps',l:'BPS',g:'FPL',rate:1,d:0,d9:1},
   {k:'min',l:'Minutes',g:'Playing time',d:0},
@@ -323,26 +338,141 @@ function seg(id,key){$(id).querySelectorAll('button').forEach(b=>{b.setAttribute
 seg('mode','mode');seg('base','base');
 // columns panel
 COLS.filter(c=>c.k!=='n').forEach(c=>{const l=document.createElement('label');l.innerHTML=`<input type="checkbox" ${S.hidden.has(c.k)?'':'checked'}> ${c.l}`;l.querySelector('input').onchange=e=>{e.target.checked?S.hidden.delete(c.k):S.hidden.add(c.k);render()};$('colpanel').appendChild(l)});
-// stat filters
+// stat filters: a tree of conditions and groups, each group matching all or any of its items
 const numCols=COLS.filter(c=>!c.type);
-function drawFilters(){
-  $('filters').querySelectorAll('.frow').forEach(n=>n.remove());
-  S.filters.forEach((f,i)=>{
-    const row=document.createElement('div');row.className='frow';
-    row.innerHTML=`<select aria-label="Stat">${numCols.map(c=>`<option value="${c.k}" ${c.k===f.k?'selected':''}>${c.l}</option>`).join('')}</select>
-      <select aria-label="Comparison"><option value="ge" ${f.op==='ge'?'selected':''}>at least</option><option value="le" ${f.op==='le'?'selected':''}>at most</option></select>
-      <input type="number" step="any" aria-label="Value" value="${f.v??''}" placeholder="${isHit(f.k)?'%':''}"><button class="x" aria-label="Remove filter">✕</button>`;
-    const [s1,s2]=row.querySelectorAll('select');const inp=row.querySelector('input');
-    s1.onchange=()=>{f.k=s1.value;inp.placeholder=isHit(f.k)?'%':'';render()};
-    s2.onchange=()=>{f.op=s2.value;render()};
-    inp.oninput=()=>{f.v=num(inp.value);render()};
-    row.querySelector('button').onclick=()=>{S.filters.splice(i,1);drawFilters();render()};
-    $('filters').insertBefore(row,$('addf'));
-  });
+const isHit=k=>{const c=COLS.find(x=>x.k===k);return !!(c&&c.hit)};
+const CAT={p:{l:'Position',opts:['GKP','DEF','MID','FWD']},t:{l:'Team',opts:[]}};
+if(!S.filters||Array.isArray(S.filters))                       // migrate the old flat list
+  S.filters={m:'all',k:(S.filters||[]).map(f=>({f:f.k,op:f.op,v:f.v}))};
+const isGroup=x=>!!x&&!!x.m;
+
+function evalCond(p,c){
+  if(CAT[c.f]){ if(!c.v) return null; return c.op==='not'? p[c.f]!==c.v : p[c.f]===c.v; }
+  const col=COLS.find(x=>x.k===c.f); if(!col) return null;
+  if(c.v===null||c.v===undefined||c.v==='') return null;
+  let v=val(p,col); if(v===null) return false;
+  if(col.hit) v*=100;
+  return c.op==='le'? v<=c.v : v>=c.v;
 }
-const isHit=k=>!!COLS.find(c=>c.k===k).hit;
-$('addf').onclick=()=>{S.filters.push({k:'xgi',op:'ge',v:null});drawFilters();render();const r=$('filters').querySelectorAll('.frow');r[r.length-1].querySelector('input').focus()};
-drawFilters();
+function evalGroup(p,g){
+  const r=g.k.map(x=>isGroup(x)?evalGroup(p,x):evalCond(p,x)).filter(x=>x!==null);
+  if(!r.length) return null;
+  return g.m==='all'? r.every(Boolean) : r.some(Boolean);
+}
+
+function condRow(c,parent){
+  const row=document.createElement('div'); row.className='fline';
+  const stat=document.createElement('select'); stat.setAttribute('aria-label','Stat or attribute');
+  stat.innerHTML=numCols.map(x=>`<option value="${x.k}">${x.l}</option>`).join('')
+    +Object.entries(CAT).map(([k,x])=>`<option value="${k}">${x.l}</option>`).join('');
+  stat.value=c.f;
+  const op=document.createElement('select'); op.setAttribute('aria-label','Comparison');
+  const val_=document.createElement('span');
+  function fillOp(){
+    op.innerHTML=CAT[c.f]?'<option value="is">is</option><option value="not">is not</option>'
+      :'<option value="ge">at least</option><option value="le">at most</option>';
+    if(!(CAT[c.f]?['is','not']:['ge','le']).includes(c.op)) c.op=CAT[c.f]?'is':'ge';
+    op.value=c.op;
+  }
+  function fillVal(){
+    val_.innerHTML='';
+    if(CAT[c.f]){
+      const s=document.createElement('select'); s.setAttribute('aria-label','Value');
+      const opts=c.f==='t'?[...new Map(P.map(p=>[p.t,p.tn])).entries()].sort((a,b)=>a[1].localeCompare(b[1])):CAT[c.f].opts.map(o=>[o,o]);
+      s.innerHTML='<option value="">Choose…</option>'+opts.map(([v,n])=>`<option value="${v}">${n}</option>`).join('');
+      s.value=c.v??''; s.onchange=()=>{c.v=s.value;render()}; val_.appendChild(s);
+    }else{
+      const i=document.createElement('input'); i.type='number'; i.step='any'; i.setAttribute('aria-label','Value');
+      i.value=(c.v??''); i.placeholder=isHit(c.f)?'%':''; i.oninput=()=>{c.v=i.value===''?null:Number(i.value);render()};
+      val_.appendChild(i);
+    }
+  }
+  stat.onchange=()=>{c.f=stat.value;c.v=null;fillOp();fillVal();render()};
+  op.onchange=()=>{c.op=op.value;render()};
+  fillOp(); fillVal();
+  const x=document.createElement('button'); x.className='x'; x.textContent='✕'; x.setAttribute('aria-label','Remove condition');
+  x.onclick=()=>{parent.k.splice(parent.k.indexOf(c),1);drawFilters();render()};
+  row.append(stat,op,val_,x); return row;
+}
+
+function groupEl(g,parent,depth){
+  const box=document.createElement('div'); box.className='fgroup'+(parent?' sub':'');
+  const head=document.createElement('div'); head.className='fline';
+  const m=document.createElement('select'); m.setAttribute('aria-label','Match all or any');
+  m.innerHTML='<option value="all">Match all of</option><option value="any">Match any of</option>';
+  m.value=g.m; m.onchange=()=>{g.m=m.value;render()};
+  const addC=document.createElement('button'); addC.className='link'; addC.textContent='+ Condition';
+  addC.onclick=()=>{g.k.push({f:'xgi',op:'ge',v:null});drawFilters();
+    const inp=box.querySelectorAll('input[type=number],select[aria-label=Value]');inp[inp.length-1]?.focus();render()};
+  const addG=document.createElement('button'); addG.className='link'; addG.textContent='+ Group';
+  addG.onclick=()=>{g.k.push({m:g.m==='all'?'any':'all',k:[{f:'xgi',op:'ge',v:null}]});drawFilters();render()};
+  head.append(m,addC);
+  if(depth<2) head.append(addG);
+  if(parent){
+    const x=document.createElement('button'); x.className='x'; x.textContent='✕'; x.setAttribute('aria-label','Remove group');
+    x.onclick=()=>{parent.k.splice(parent.k.indexOf(g),1);drawFilters();render()};
+    head.append(x);
+  }else if(g.k.length){
+    const c=document.createElement('button'); c.className='link'; c.textContent='Clear all';
+    c.onclick=()=>{g.k=[];g.m='all';drawFilters();render()};
+    head.append(c);
+  }
+  box.appendChild(head);
+  g.k.forEach(it=>box.appendChild(isGroup(it)?groupEl(it,g,depth+1):condRow(it,g)));
+  return box;
+}
+function drawFilters(){ const b=$('fbar'); b.innerHTML=''; b.appendChild(groupEl(S.filters,null,0)); }
+
+// ---- saved filters: the whole query (builder + the controls above it), by name
+const FKEYS=['pos','team','pmin','pmax','minmin','mode','base','sort','dir'];
+let F={saved:[],active:null};
+try{const s=JSON.parse(localStorage.getItem('fplstats-filters-v1')||'null');if(s&&Array.isArray(s.saved))F=Object.assign(F,s)}catch(e){}
+function saveF(){try{localStorage.setItem('fplstats-filters-v1',JSON.stringify(F))}catch(e){}}
+const activeF=()=>F.saved.find(x=>x.id===F.active)||null;
+function snapshot(){const o={filters:JSON.parse(JSON.stringify(S.filters))};
+  FKEYS.forEach(k=>o[k]=k==='pos'?[...S.pos].sort():S[k]); return o;}
+function applySnapshot(s){
+  S.filters=JSON.parse(JSON.stringify(s.filters||{m:'all',k:[]}));
+  FKEYS.forEach(k=>{ if(!(k in s)) return; S[k]=k==='pos'?new Set(s[k]):s[k]; });
+  syncControls(); drawFilters(); render();
+}
+function syncControls(){
+  $('pos').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',S.pos.has(b.dataset.v)));
+  $('team').value=S.team||''; $('pmin').value=S.pmin??''; $('pmax').value=S.pmax??''; $('minmin').value=S.minmin??'';
+  ['mode','base'].forEach(id=>$(id).querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S[id])));
+}
+const sameAsSaved=()=>{const a=activeF();return a&&JSON.stringify(a.s)===JSON.stringify(snapshot())};
+let fEdit=null,fConfirm=false;
+function drawSaved(){
+  const el=$('fsave'), a=activeF();
+  if(fEdit){
+    el.innerHTML=`<span class="lbl">Name this filter</span><input type="text" id="fname" aria-label="Filter name" maxlength="40" value="${fEdit==='rename'&&a?a.name.replace(/"/g,'&quot;'):''}" placeholder="e.g. Budget DEFCON defenders"><button id="fok">${fEdit==='rename'?'Rename':'Save'}</button><button class="x" id="fcancel">Cancel</button>`;
+    const inp=$('fname'); inp.focus();
+    const done=()=>{const nm=inp.value.trim(); if(!nm) return;
+      if(fEdit==='rename'&&a) a.name=nm;
+      else { const id='f'+Date.now().toString(36); F.saved.push({id,name:nm,s:snapshot()}); F.active=id; }
+      fEdit=null; saveF(); drawSaved();};
+    $('fok').onclick=done; inp.onkeydown=e=>{if(e.key==='Enter')done();if(e.key==='Escape'){fEdit=null;drawSaved()}};
+    $('fcancel').onclick=()=>{fEdit=null;drawSaved()};
+    return;
+  }
+  const dirty=a&&!sameAsSaved();
+  el.innerHTML=`<span class="lbl">Saved filters</span>
+    <select id="fsel" aria-label="Saved filter"><option value="">${F.saved.length?'Choose a saved filter…':'None saved yet'}</option>${F.saved.map(x=>`<option value="${x.id}" ${x.id===F.active?'selected':''}>${x.name.replace(/</g,'&lt;')}</option>`).join('')}</select>
+    <button id="fnew">Save current</button>
+    ${a?`<button id="fupd" ${dirty?'':'disabled'}>Update</button><button id="fren">Rename</button><button id="fdel" class="${fConfirm?'danger':''}">${fConfirm?'Confirm delete':'Delete'}</button>`:''}
+    ${dirty?'<span class="dirty">Edited since saving</span>':''}`;
+  $('fsel').onchange=e=>{const id=e.target.value; fConfirm=false;
+    if(!id){F.active=null;saveF();drawSaved();return}
+    F.active=id; saveF(); applySnapshot(activeF().s); drawSaved();};
+  $('fnew').onclick=()=>{fEdit='new';fConfirm=false;drawSaved()};
+  if(a){
+    $('fupd').onclick=()=>{a.s=snapshot();saveF();drawSaved()};
+    $('fren').onclick=()=>{fEdit='rename';fConfirm=false;drawSaved()};
+    $('fdel').onclick=()=>{if(!fConfirm){fConfirm=true;drawSaved();$('fdel').focus();return}
+      F.saved=F.saved.filter(x=>x!==a); F.active=null; fConfirm=false; saveF(); drawSaved();};
+  }
+}
 
 function render(){
   save();
@@ -358,10 +488,7 @@ function render(){
     if(S.pmin!==null && p.c<S.pmin) return false;
     if(S.pmax!==null && p.c>S.pmax) return false;
     if(S.minmin!==null && p.min<S.minmin) return false;
-    for(const f of S.filters){ if(f.v===null||f.v===undefined) continue;
-      const c=COLS.find(x=>x.k===f.k); let v=val(p,c); if(v===null) return false;
-      if(c.hit) v=v*100;
-      if(f.op==='ge'? v<f.v : v>f.v) return false; }
+    if(evalGroup(p,S.filters)===false) return false;
     return true;
   });
   const sc=COLS.find(c=>c.k===S.sort)||COLS[4];
@@ -370,6 +497,7 @@ function render(){
     if(typeof va==='string') return va.localeCompare(vb)*S.dir;
     return (va-vb)*S.dir || b.pts-a.pts;});
   $('count').textContent=`${rows.length} of ${P.length} players`;
+  if(F.saved.length||F.active) drawSaved();
   const al=activeList(); const inL=new Set(al?al.ids:[]);
   $('body').innerHTML=rows.map(p=>'<tr>'+cols.map(c=>{
     const cls=[c.k==='n'?'name':'',c.type==='txt'?'l':'',c.hit?'hit':'',c.gwcol?'gw':'',S.sort===c.k?'sorted':''].join(' ');
@@ -387,6 +515,7 @@ async function start(){
     $('team').querySelectorAll('option:not([value=""])').forEach(o=>o.remove());
     [...new Map(P.map(p=>[p.t,p.tn])).entries()].sort((a,b)=>a[1].localeCompare(b[1])).forEach(([s,n])=>{const o=document.createElement('option');o.value=s;o.textContent=n;$('team').appendChild(o)});
     $('team').value=S.team;
+    drawFilters(); drawSaved();
     const [a,b]=SEASON.split('-');
     $('sub').textContent=`Every player's ${a}/${b.slice(2)} season so far, through gameweek ${GW}. Loaded fresh from the FPL-Core-Insights dataset each time you open the page.`;
     render();
