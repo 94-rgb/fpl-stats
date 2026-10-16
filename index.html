@@ -73,6 +73,7 @@ tbody tr:hover td.sorted{background:var(--sel)}
 .hit .bar{position:absolute;left:9px;bottom:4px;height:3px;background:var(--turf);border-radius:2px;z-index:0;max-width:calc(100% - 18px)}
 .hit span{position:relative;z-index:1}
 .hit small{color:var(--ink-2);font-size:12px;margin-left:4px}
+.gw small{color:var(--ink-2);font-size:12px;margin-left:5px}
 .dim{color:var(--ink-2)}
 .star{border:0;background:none;padding:0 6px 0 0;font-size:17px;line-height:1;color:var(--ink-2);vertical-align:-1px}
 .star[aria-pressed=true]{color:var(--amber)}
@@ -122,6 +123,7 @@ tbody tr:hover td.sorted{background:var(--sel)}
   <p>npxG removes 0.79 xG for every penalty a player has taken, scored or missed, which is the value the underlying provider assigns to a penalty. npxGI is npxG plus xA.</p>
   <p>Team xCS is an estimate: for each match, the chance of a clean sheet is taken as e<sup>−xG</sup> using the opponent's xG, and those chances are added up. Its per-90 figure is per team match. It is shown against a player's current club.</p>
   <p>Hit rates count matches where a player reached 60 minutes, reached the DEFCON threshold (10 for defenders, 12 for midfielders and forwards; goalkeepers can't earn it) or made 3 or more saves. "Appearances" divides by matches the player got on the pitch; "Team matches" divides by every match their club has played. A double gameweek counts as two matches and a blank gameweek as none. Single gameweeks use the official FPL figures; double gameweeks are split using match-level stats, which agree with FPL's DEFCON threshold calls on every match checked so far.</p>
+<p>Last non-start is the most recent gameweek in which a player's club played a match he didn't start, with the minutes he played that gameweek beside it. It counts being benched, being an unused substitute, and being out of the squad altogether, so read it as rotation and availability risk rather than benchings alone. "Never" means he has started every match his club has played. Single gameweeks use the official FPL starts figure; doubles fall back to match-level data where that shows more starts.</p>
 <p>Shortlists and your filter settings are saved in this browser, so they won't appear on another device or if you clear site data.</p>
   <p>Per-90 figures are only shown for players with minutes. Stat filters apply to whatever is on screen, so a filter set in Per 90 mode filters per-90 values.</p>
 </section>
@@ -188,25 +190,31 @@ function build({players,teams,gws,cum}){
   gws.forEach(({pms})=>pms.forEach(r=>{const g=matchGW[r.match_id]; if(g===undefined) return;
     const pos=posOf[r.player_id];
     const dc=n0(r.clearances)+n0(r.blocks)+n0(r.interceptions)+n0(r.tackles_won)+((pos==='MID'||pos==='FWD')?n0(r.recoveries):0);
-    (PM[r.player_id]=PM[r.player_id]||[]).push({g,min:n0(r.minutes_played),sv:n0(r.saves),dc,xgot:n0(r.xgot),pens:n0(r.penalties_scored)+n0(r.penalties_missed)});}));
+    (PM[r.player_id]=PM[r.player_id]||[]).push({g,min:n0(r.minutes_played),sv:n0(r.saves),dc,xgot:n0(r.xgot),
+      start:String(r.start_min).trim()!==''&&n0(r.start_min)===0&&n0(r.minutes_played)>0,
+      pens:n0(r.penalties_scored)+n0(r.penalties_missed)});}));
   // official FPL gameweek rows
-  const PG={}; gws.forEach(({g,pgs})=>pgs.forEach(r=>{(PG[r.id]=PG[r.id]||{})[g]={min:n0(r.minutes),dc:n0(r.defensive_contribution),sv:n0(r.saves)}}));
+  const PG={}; gws.forEach(({g,pgs})=>pgs.forEach(r=>{(PG[r.id]=PG[r.id]||{})[g]={min:n0(r.minutes),dc:n0(r.defensive_contribution),sv:n0(r.saves),st:n0(r.starts)}}));
   const out=[];
   players.forEach(p=>{const c=C[p.player_id]; if(!c) return;
     const id=+p.player_id, pos=POS[p.position], th=THR[pos], tc=String(parseInt(p.team_code)), tm=team[tc]||{s:'?',n:''};
     const pm=PM[p.player_id]||[];
-    let apps=0,m60=0,svh=0,dch=th?0:null;
+    let apps=0,m60=0,svh=0,dch=th?0:null,lns=0,lnsmin=0;
     gws.forEach(({g})=>{const nfix=teamGW[tc+'|'+g]||0; if(!nfix) return;           // blank: nothing counted
+      const og=(PG[p.player_id]||{})[g];
       let ev;
-      if(nfix===1){ const r=(PG[p.player_id]||{})[g]; ev=[r||{min:0,dc:0,sv:0}]; } // single: official figures
+      if(nfix===1){ ev=[og||{min:0,dc:0,sv:0}]; }                                 // single: official figures
       else ev=pm.filter(x=>x.g===g);                                              // double: individual matches
       ev.forEach(e=>{ if(e.min>0)apps++; if(e.min>=60)m60++; if(e.sv>=3)svh++; if(th&&e.dc>=th)dch++; });
+      // starts: the official figure, with match rows as a fallback where they show more
+      const starts=Math.min(nfix,Math.max(og?og.st:0,pm.filter(x=>x.g===g&&x.start).length));
+      if(starts<nfix&&g>=lns){ lns=g; lnsmin=og?og.min:ev.reduce((s,e)=>s+e.min,0); }
     });
     const xg=n0(c.expected_goals), xa=n0(c.expected_assists);
     const pens=pm.reduce((s,x)=>s+x.pens,0), npxg=Math.max(0,xg-0.79*pens);
     const t=tx[tc]||{x:0,n:0};
     out.push({id,n:p.web_name,f:`${p.first_name} ${p.second_name}`,t:tm.s,tn:tm.n,p:pos,c:n0(c.now_cost),min:n0(c.minutes),st:n0(c.starts),
-      apps,tmn:t.n,m60,xg,npxg,xa,xgi:n0(c.expected_goal_involvements),npxgi:npxg+xa,xgot:pm.reduce((s,x)=>s+x.xgot,0),
+      apps,tmn:t.n,m60,lns,lnsmin,xg,npxg,xa,xgi:n0(c.expected_goal_involvements),npxgi:npxg+xa,xgot:pm.reduce((s,x)=>s+x.xgot,0),
       xgc:n0(c.expected_goals_conceded),xcs:t.x,dc:n0(c.defensive_contribution),dch,sv:n0(c.saves),svh,
       cd:n0(c.yellow_cards)+n0(c.red_cards),b:n0(c.bonus),bps:n0(c.bps),pts:n0(c.total_points),g:n0(c.goals_scored),a:n0(c.assists),cs:n0(c.clean_sheets)});
   });
@@ -222,6 +230,7 @@ const COLS = [
   {k:'bps',l:'BPS',g:'FPL',rate:1,d:0,d9:1},
   {k:'min',l:'Minutes',g:'Playing time',d:0},
   {k:'st',l:'Starts',g:'Playing time',d:0},
+  {k:'lns',l:'Last non-start',g:'Playing time',gwcol:1,d:0},
   {k:'h60',l:'60+ mins',g:'Playing time',hit:'m60'},
   {k:'g',l:'Goals',g:'Attack',rate:1,d:0,d9:2},
   {k:'a',l:'Assists',g:'Attack',rate:1,d:0,d9:2},
@@ -294,6 +303,7 @@ function fmt(p,c,v){
   if(v===null||v===undefined) return '<span class="dim">–</span>';
   if(c.hit){ const den=S.base==='apps'?p.apps:p.tmn;
     return `<div class="bar" style="width:calc((100% - 18px) * ${v.toFixed(3)})"></div><span>${Math.round(v*100)}%</span><small>${p[c.hit]}/${den}</small>`; }
+  if(c.gwcol) return v? `GW${v}<small>${p.lnsmin}m</small>` : '<span class="dim">Never</span>';
   const d = (S.mode==='p90'&&c.rate)? (c.d9??c.d) : c.d;
   return v.toFixed(d);
 }
@@ -362,7 +372,7 @@ function render(){
   $('count').textContent=`${rows.length} of ${P.length} players`;
   const al=activeList(); const inL=new Set(al?al.ids:[]);
   $('body').innerHTML=rows.map(p=>'<tr>'+cols.map(c=>{
-    const cls=[c.k==='n'?'name':'',c.type==='txt'?'l':'',c.hit?'hit':'',S.sort===c.k?'sorted':''].join(' ');
+    const cls=[c.k==='n'?'name':'',c.type==='txt'?'l':'',c.hit?'hit':'',c.gwcol?'gw':'',S.sort===c.k?'sorted':''].join(' ');
     if(c.k==='n') return `<td class="${cls}" title="${p.f}"><button class="star" data-id="${p.id}" aria-pressed="${inL.has(p.id)}" aria-label="${inL.has(p.id)?'Remove '+p.n+' from':'Add '+p.n+' to'} ${al?al.name.replace(/"/g,'&quot;'):'a new shortlist'}">${inL.has(p.id)?'★':'☆'}</button><b>${p.n}</b></td>`;
     if(c.k==='p') return `<td class="${cls}"><span class="pos ${p.p}">${p.p}</span></td>`;
     return `<td class="${cls}">${fmt(p,c,val(p,c))}</td>`;}).join('')+'</tr>').join('');
